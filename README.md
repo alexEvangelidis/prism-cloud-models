@@ -1,5 +1,5 @@
 # PRISM models
-This repository contains the PRISM models I have developed for the following papers.
+This repository contains the code of the PRISM models I have developed for the following papers.
 
 * Alexandros Evangelidis, David Parker, and Rami Bahsoon. 2017.
 [Performance Modelling and Verification of Cloud-based Auto-Scaling Policies](http://www.prismmodelchecker.org/bibitem.php?key=EPB17).
