@@ -1,0 +1,912 @@
+//    Copyright (C) 2017-2020 Alexandros Evangelidis
+
+//    This program is free software: you can redistribute it and/or modify
+//    it under the terms of the GNU General Public License as published by
+//    the Free Software Foundation, either version 3 of the License, or
+//    (at your option) any later version.
+
+//    This program is distributed in the hope that it will be useful,
+//    but WITHOUT ANY WARRANTY; without even the implied warranty of
+//    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//    GNU General Public License for more details.
+
+//    You should have received a copy of the GNU General Public License
+//    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
+smg
+
+player environment  
+env,  [change_arr],[satisfy_scale_out_request], [satisfy_scale_in_request], [choice_b_true], [change_arr_b], [choice_b_false]
+endplayer
+
+player saas
+saas_system,[scale_out_act1],[scale_out_act2],[scale_in_act2],[scale_in_act1],[wait],[alloc],[retry] 
+endplayer
+
+
+global t:[0..MAX_TIME]init 0;
+global r_t:[0..10]init 0;
+global turn:[SAAS_TURN..ENV_TURN]init ENV_TURN;
+global scale_out_requests : [0..1000]init 0;
+global scale_in_requests : [0..1000]init 0;
+global scale_out_requests_satisfied : [0..1000]init 0;
+global scale_in_requests_satisfied : [0..1000]init 0;
+global capacity_added: bool init false;
+global capacity_removed: bool init false;
+global req_send_0: bool init false;
+global scale_out_trigger :bool init false;
+global scale_out_trigger_2: bool init false;
+global scale_in_trigger :bool init false;
+global scale_in_trigger_2: bool init false;
+global check: bool init false;
+global stop : bool init false;
+global cost : [1..5000]init 1;
+global price_charged : [1..100]init 5;
+global util :[0..100]init 50;
+global best_effort : bool init false;
+
+const MAX_VMS=9;
+const int SAAS_TURN=1;
+const int ENV_TURN=2;
+const int b_util=95;
+const MIN_ARRIVALS=0;
+const MAX_ARRIVALS=100000;
+
+const double service_rate= 1;
+//constants to be set by the user
+const double s_o_adj_1;const double s_o_adj_2;
+const double s_in_adj_1;const double s_in_adj_2;
+const INITIAL_VMS ;const MAX_TIME;
+const int incr;const int decr;
+const double p;
+const WAIT_TIME;
+
+
+
+const double p1_1;const double p1_2;const double p1_3;const double p1_4;const double p1_5;
+const double p2_1;const double p2_2;const double p2_3;const double p2_4;const double p2_5;
+const double p3_1;const double p3_2;const double p3_3;const double p3_4;const double p3_5;
+const double p4_1;const double p4_2;const double p4_3;const double p4_4;const double p4_5;
+const double p5_1;const double p5_2;const double p5_3;const double p5_4;const double p5_5;
+const double p6_1;const double p6_2;const double p6_3;const double p6_4;const double p6_5;
+const double p7_1;const double p7_2;const double p7_3;const double p7_4;const double p7_5;
+const double p8_1;const double p8_2;const double p8_3;const double p8_4;const double p8_5;
+
+const double util_1_1;const double util_1_2;const double util_1_3;const double util_1_4;const double util_1_5;
+const double util_2_1;const double util_2_2;const double util_2_3;const double util_2_4;const double util_2_5;
+const double util_3_1;const double util_3_2;const double util_3_3;const double util_3_4;const double util_3_5;
+const double util_4_1;const double util_4_2;const double util_4_3;const double util_4_4;const double util_4_5;
+const double util_5_1;const double util_5_2;const double util_5_3;const double util_5_4;const double util_5_5;
+const double util_6_1;const double util_6_2;const double util_6_3;const double util_6_4;const double util_6_5;
+const double util_7_1;const double util_7_2;const double util_7_3;const double util_7_4;const double util_7_5;
+const double util_8_1;const double util_8_2;const double util_8_3;const double util_8_4;const double util_8_5;
+
+const int rt_1_1;const int rt_1_2;const int rt_1_3;const int rt_1_4;const int rt_1_5;
+const int rt_2_1;const int rt_2_2;const int rt_2_3;const int rt_2_4;const int rt_2_5;
+const int rt_3_1;const int rt_3_2;const int rt_3_3;const int rt_3_4;const int rt_3_5;
+const int rt_4_1;const int rt_4_2;const int rt_4_3;const int rt_4_4;const int rt_4_5;
+const int rt_5_1;const int rt_5_2;const int rt_5_3;const int rt_5_4;const int rt_5_5;
+const int rt_6_1;const int rt_6_2;const int rt_6_3;const int rt_6_4;const int rt_6_5;
+const int rt_7_1;const int rt_7_2;const int rt_7_3;const int rt_7_4;const int rt_7_5;
+const int rt_8_1;const int rt_8_2;const int rt_8_3;const int rt_8_4;const int rt_8_5;
+
+formula revenue= price_charged - cost;
+
+
+//arrival rate lambda     arrivals per minute(on average)
+
+
+//Utilisation formula (utilisation takes values between(0..1)
+//formula util=(req_unserved /(service_rate*cVMs))* 100 ;
+
+//adjustments in the range  [0.1-0.12)
+formula adjust_c1=(cVMs*s_o_adj_1)>=incr ? ceil(cVMs*s_o_adj_1):incr;
+//formula adjust_c2= ceil(cVMs*s_o_adj_2)>= incr ?incr :  ceil(cVMs*s_o_adj_2);
+//scale-out adjustments for 1+
+//formula adjust_f1= floor(cVMs*s_o_adj_1)>= incr ?incr :  floor(cVMs*s_o_adj_1);
+formula adjust_f2=(cVMs*s_o_adj_2)>= incr ?  floor(cVMs*s_o_adj_2): incr ;
+//scale-in adjustments for 1+
+formula adjust_si_f1=(cVMs*s_in_adj_1)>= decr ? ceil(cVMs*s_in_adj_1): decr;
+//formula adjust_si_c2= ceil(cVMs*s_in_adj_2)>= decr ?  decr :  ceil(cVMs*s_in_adj_2);
+
+//formula adjust_si_c1= ceil(cVMs*s_in_adj_1)>= decr ?  decr :  ceil(cVMs*s_in_adj_1);
+formula adjust_si_f2=(cVMs*s_in_adj_2)>= decr ? floor(cVMs*s_in_adj_2):decr;
+
+module env
+
+imm_res:bool init false;
+cVMs:[INITIAL_VMS..MAX_VMS]init INITIAL_VMS;
+
+t_be:[0..WAIT_TIME]init 0;
+
+
+[](turn=ENV_TURN)&(t=MAX_TIME)->(t'=MAX_TIME);
+[](turn=ENV_TURN)&(util>=b_util)->(t'=MAX_TIME);
+
+//1 VM AGGRESSIVE LOAD
+
+[change_arr](turn=ENV_TURN)&(t<MAX_TIME)&(cVMs=1)&(check=false)&(scale_out_trigger=false)&(scale_in_trigger=false)
+&(scale_out_trigger_2=false)&(scale_in_trigger_2=false)&(best_effort=false)&(imm_res=false)->
+//1st transition
+p1_1:(util'=ceil(util_1_1))&(r_t'=rt_1_1)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//2nd transition
+p1_2:(util'=ceil(util_1_2))&(r_t'=rt_1_2)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//3rd transition
+p1_3:(util'=ceil(util_1_3))&(r_t'=rt_1_3)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//4th transition
+p1_4:(util'=ceil(util_1_4))&(r_t'=rt_1_4)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//5th transition
+p1_5:(util'=ceil(util_1_5))&(r_t'=rt_1_5)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN);
+
+//2 VMs
+[change_arr](turn=ENV_TURN)&(t<MAX_TIME)&(cVMs=2)&(check=false)&(scale_out_trigger=false)&(scale_in_trigger=false)
+&(scale_out_trigger_2=false)&(scale_in_trigger_2=false)&(best_effort=false)&(imm_res=false)->
+
+//1st transition
+p2_1:(util'=ceil(util_2_1))&(r_t'=rt_2_1)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//2nd transition
+p2_2:(util'=ceil(util_2_2))&(r_t'=rt_2_2)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//3rd transition
+p2_3:(util'=ceil(util_2_3))&(r_t'=rt_2_3)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//4th transition
+p2_4:(util'=ceil(util_2_4))&(r_t'=rt_2_4)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//5th transition
+p2_5:(util'=ceil(util_2_5))&(r_t'=rt_2_5)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN);
+
+//3 VMs
+[change_arr](turn=ENV_TURN)&(t<MAX_TIME)&(cVMs=3)&(check=false)&(scale_out_trigger=false)&(scale_in_trigger=false)
+&(scale_out_trigger_2=false)&(scale_in_trigger_2=false)&(best_effort=false)&(imm_res=false)->
+
+//1st transition
+p3_1:(util'=ceil(util_3_1))&(r_t'=rt_3_1)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//2nd transition
+p3_2:(util'=ceil(util_3_2))&(r_t'=rt_3_2)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//3rd transition
+p3_3:(util'=ceil(util_3_3))&(r_t'=rt_3_3)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//4th transition
+p3_4:(util'=ceil(util_3_4))&(r_t'=rt_3_4)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//5th transition
+p3_5:(util'=ceil(util_3_5))&(r_t'=rt_3_5)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN);
+
+//4 VMs
+[change_arr](turn=ENV_TURN)&(t<MAX_TIME)&(cVMs=4)&(check=false)&(scale_out_trigger=false)&(scale_in_trigger=false)
+&(scale_out_trigger_2=false)&(scale_in_trigger_2=false)&(best_effort=false)&(imm_res=false)->
+
+//1st transition
+p4_1:(util'=ceil(util_4_1))&(r_t'=rt_4_1)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//2nd transition
+p4_2:(util'=ceil(util_4_2))&(r_t'=rt_4_2)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//3rd transition
+p4_3:(util'=ceil(util_4_3))&(r_t'=rt_4_3)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//4th transition
+p4_4:(util'=ceil(util_4_4))&(r_t'=rt_4_4)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//5th transition
+p4_5:(util'=ceil(util_4_5))&(r_t'=rt_4_5)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN);
+
+
+
+//5 VMs
+[change_arr](turn=ENV_TURN)&(t<MAX_TIME)&(cVMs=5)&(check=false)&(scale_out_trigger=false)&(scale_in_trigger=false)
+&(scale_out_trigger_2=false)&(scale_in_trigger_2=false)&(best_effort=false)&(imm_res=false)-> 
+
+//1st transition
+p5_1:(util'=ceil(util_5_1))&(r_t'=rt_5_1)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//2nd transition
+p5_2:(util'=ceil(util_5_2))&(r_t'=rt_5_2)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//3rd transition
+p5_3:(util'=ceil(util_5_3))&(r_t'=rt_5_3)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//4th transition
+p5_4:(util'=ceil(util_5_4))&(r_t'=rt_5_4)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//5th transition
+p5_5:(util'=ceil(util_5_5))&(r_t'=rt_5_5)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN);
+
+
+//6 VMs
+[change_arr](turn=ENV_TURN)&(t<MAX_TIME)&(cVMs=6)&(check=false)&(scale_out_trigger=false)&(scale_in_trigger=false)
+&(scale_out_trigger_2=false)&(scale_in_trigger_2=false)&(best_effort=false)&(imm_res=false)-> 
+
+//1st transition
+p6_1:(util'=ceil(util_6_1))&(r_t'=rt_6_1)&(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//2nd transition
+p6_2:(util'=ceil(util_6_2))&(r_t'=rt_6_2)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//3rd transition
+p6_3:(util'=ceil(util_6_3))&(r_t'=rt_6_3)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//4th transition
+p6_4:(util'=ceil(util_6_4))&(r_t'=rt_6_4)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//5th transition
+p6_5:(util'=ceil(util_6_5))&(r_t'=rt_6_5)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN);
+
+//7 VMs
+[change_arr](turn=ENV_TURN)&(t<MAX_TIME)&(cVMs=7)&(check=false)&(scale_out_trigger=false)&(scale_in_trigger=false)
+&(scale_out_trigger_2=false)&(scale_in_trigger_2=false)&(best_effort=false)&(imm_res=false)->
+
+//1st transition
+p7_1:(util'=ceil(util_7_1))&(r_t'=rt_7_1)&(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//2nd transition
+p7_2:(util'=ceil(util_7_2))&(r_t'=rt_7_2)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//3rd transition
+p7_3:(util'=ceil(util_7_3))&(r_t'=rt_7_3)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//4th transition
+p7_4:(util'=ceil(util_7_4))&(r_t'=rt_7_4)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//5th transition
+p7_5:(util'=ceil(util_7_5))&(r_t'=rt_7_5)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN);
+
+//8 VMs
+[change_arr](turn=ENV_TURN)&(t<MAX_TIME)&(cVMs=8)&(check=false)&(scale_out_trigger=false)&(scale_in_trigger=false)
+&(scale_out_trigger_2=false)&(scale_in_trigger_2=false)&(best_effort=false)&(imm_res=false)->
+
+//1st transition
+p8_1:(util'=ceil(util_8_1))&(r_t'=rt_8_1)&(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//2nd transition
+p8_2:(util'=ceil(util_8_2))&(r_t'=rt_8_2)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//3rd transition
+p8_3:(util'=ceil(util_8_3))&(r_t'=rt_8_3)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//4th transition
+p8_4:(util'=ceil(util_8_4))&(r_t'=rt_8_4)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN)+
+//5th transition
+p8_5:(util'=ceil(util_8_5))&(r_t'=rt_8_5)&(capacity_added'=false)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(req_send_0'=false)&(scale_in_trigger'=false)&
+(check'=true)&(t'=t+1)&(turn'=SAAS_TURN);
+
+//====================================BEST-EFFORT ARRIVALS=============================================================================//
+
+//1 VM
+[change_arr_b](turn=ENV_TURN)&(t_be<WAIT_TIME)&(t<MAX_TIME)&(cVMs=1)&(check=false)&(best_effort=true)&(imm_res=false)->
+p1_1:(util'=ceil(util_1_1))&(r_t'=rt_1_1)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p1_2:(util'=ceil(util_1_2))&(r_t'=rt_1_2)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p1_3:(util'=ceil(util_1_3))&(r_t'=rt_1_3)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p1_4:(util'=ceil(util_1_4))&(r_t'=rt_1_4)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p1_5:(util'=ceil(util_1_5))&(r_t'=rt_1_5)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1);
+
+//2 VMS
+[change_arr_b](turn=ENV_TURN)&(t_be<WAIT_TIME)&(t<MAX_TIME)&(cVMs=2)&(check=false)&(best_effort=true)&(imm_res=false)->
+p2_1:(util'=ceil(util_2_1))&(r_t'=rt_2_1)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p2_2:(util'=ceil(util_2_2))&(r_t'=rt_2_2)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p2_3:(util'=ceil(util_2_3))&(r_t'=rt_2_3)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p2_4:(util'=ceil(util_2_4))&(r_t'=rt_2_4)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p2_5:(util'=ceil(util_2_5))&(r_t'=rt_2_5)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1);
+
+//3 VMS
+[change_arr_b](turn=ENV_TURN)&(t_be<WAIT_TIME)&(t<MAX_TIME)&(cVMs=3)&(check=false)&(best_effort=true)&(imm_res=false)->
+p3_1:(util'=ceil(util_3_1))&(r_t'=rt_3_1)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p3_2:(util'=ceil(util_3_2))&(r_t'=rt_3_2)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p3_3:(util'=ceil(util_3_3))&(r_t'=rt_3_3)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p3_4:(util'=ceil(util_3_4))&(r_t'=rt_3_4)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p3_5:(util'=ceil(util_3_5))&(r_t'=rt_3_5)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1);
+
+//4 VMs
+[change_arr_b](turn=ENV_TURN)&(t_be<WAIT_TIME)&(t<MAX_TIME)&(cVMs=4)&(check=false)&(best_effort=true)&(imm_res=false)->
+p4_1:(util'=ceil(util_4_1))&(r_t'=rt_4_1)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p4_2:(util'=ceil(util_4_2))&(r_t'=rt_4_2)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p4_3:(util'=ceil(util_4_3))&(r_t'=rt_4_3)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p4_4:(util'=ceil(util_4_4))&(r_t'=rt_4_4)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p4_5:(util'=ceil(util_4_5))&(r_t'=rt_4_5)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1);
+
+//5 VMs
+[change_arr_b](turn=ENV_TURN)&(t_be<WAIT_TIME)&(t<MAX_TIME)&(cVMs=5)&(check=false)&(best_effort=true)&(imm_res=false)->
+p5_1:(util'=ceil(util_5_1))&(r_t'=rt_5_1)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p5_3:(util'=ceil(util_5_2))&(r_t'=rt_5_2)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p5_3:(util'=ceil(util_5_3))&(r_t'=rt_5_3)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p5_4:(util'=ceil(util_5_4))&(r_t'=rt_5_4)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p5_5:(util'=ceil(util_5_5))&(r_t'=rt_5_5)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1);
+
+//6 VMs
+[change_arr_b](turn=ENV_TURN)&(t_be<WAIT_TIME)&(t<MAX_TIME)&(cVMs=6)&(check=false)&(best_effort=true)&(imm_res=false)->
+p6_1:(util'=ceil(util_6_1))&(r_t'=rt_6_1)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p6_2:(util'=ceil(util_6_2))&(r_t'=rt_6_2)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p6_3:(util'=ceil(util_6_3))&(r_t'=rt_6_3)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p6_4:(util'=ceil(util_6_4))&(r_t'=rt_6_4)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p6_5:(util'=ceil(util_6_5))&(r_t'=rt_6_5)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1);
+
+//7 VMs
+[change_arr_b](turn=ENV_TURN)&(t_be<WAIT_TIME)&(t<MAX_TIME)&(cVMs=7)&(check=false)&(best_effort=true)&(imm_res=false)->
+p7_1:(util'=ceil(util_7_1))&(r_t'=rt_7_1)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p7_2:(util'=ceil(util_7_2))&(r_t'=rt_7_2)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p7_3:(util'=ceil(util_7_3))&(r_t'=rt_7_3)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p7_4:(util'=ceil(util_7_4))&(r_t'=rt_7_4)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p7_5:(util'=ceil(util_7_5))&(r_t'=rt_7_5)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1);
+
+//8 VMs
+[change_arr_b](turn=ENV_TURN)&(t_be<WAIT_TIME)&(t<MAX_TIME)&(cVMs=8)&(check=false)&(best_effort=true)&(imm_res=false)->
+p8_1:(util'=ceil(util_8_1))&(r_t'=rt_8_1)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p8_2:(util'=ceil(util_8_2))&(r_t'=rt_8_2)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p8_3:(util'=ceil(util_8_3))&(r_t'=rt_8_3)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p8_4:(util'=ceil(util_8_4))&(r_t'=rt_8_4)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1)+
+p8_5:(util'=ceil(util_8_5))&(r_t'=rt_8_5)&(check'=true)&(turn'=SAAS_TURN)&(t_be'=t_be+1);
+
+
+//choices
+[choice_b_true](turn=ENV_TURN)&(t<MAX_TIME)&(t_be=WAIT_TIME)&(scale_out_trigger=true|scale_in_trigger_2=true|scale_out_trigger_2=true|scale_in_trigger=true)&(check=false)&
+(best_effort=true)&(imm_res=false)->(imm_res'=true)&(best_effort'=false)&(t'=t+1)&(t_be'=0)&(turn'=ENV_TURN);
+
+[choice_b_false](turn=ENV_TURN)&(t<MAX_TIME)&(scale_out_trigger=true|scale_in_trigger_2=true|scale_out_trigger_2=true|scale_in_trigger=true)&(check=false)&
+(best_effort=false)&(imm_res=false)->p:(imm_res'=true)&(turn'=ENV_TURN)&(t'=t+1)+
+1-p:(best_effort'=true)&(t'=t+1)&(turn'=ENV_TURN);
+
+
+//for step1 scale-out responses
+[satisfy_scale_out_request](turn=ENV_TURN)&(t<MAX_TIME)&(cVMs=1|cVMs=2|cVMs=3|cVMs=4|cVMs=5|cVMs=6|cVMs=7)&(capacity_added=false)&(scale_out_trigger= true)&(scale_out_trigger_2=false)&(imm_res=true)
+&(scale_in_trigger_2=false)&(scale_in_trigger=false)&(check=false)&(s_o_adj_1>=0&s_o_adj_1<.2)->
+(check'=false)&(capacity_added'=true)&(t_be'=0)&
+(scale_out_trigger'=false)&(scale_out_requests_satisfied'=scale_out_requests_satisfied+1)&(cVMs'=adjust_c1+cVMs)&(imm_res'=false)&(best_effort'=false)&
+(util'=ceil(util*0.2))&
+(turn'=ENV_TURN);
+
+//for step 2 scale-out responses
+[satisfy_scale_out_request](turn=ENV_TURN)&(t<MAX_TIME)&(cVMs=1|cVMs=2|cVMs=3|cVMs=4|cVMs=5|cVMs=6|cVMs=7)&(imm_res=true)&(capacity_added=false)&(scale_out_trigger_2=true)&
+(scale_out_trigger=false)&(scale_in_trigger_2=false)&(scale_in_trigger=false)&
+(check=false)&(s_o_adj_2>=0.2&s_o_adj_2<1)->
+(t_be'=0)&(scale_out_requests_satisfied'=scale_out_requests_satisfied+1)&(check'=false)&(capacity_added'=true)&(scale_out_trigger_2'=false)&(imm_res'=false)&(util'=ceil(util*0.2))&
+(best_effort'=false)&(cVMs'=adjust_f2+cVMs)&(turn'=ENV_TURN);
+
+//for step 1 scale in responses
+[satisfy_scale_in_request](turn=ENV_TURN)&(imm_res=true)&(cVMs=2|cVMs=3|cVMs=4|cVMs=5|cVMs=6|cVMs=7|cVMs=8)&(t<MAX_TIME)&(capacity_removed=false)&
+(scale_in_trigger=true)&(scale_out_trigger=false)&(scale_in_trigger_2=false)&(check=false)&(s_in_adj_1>=0&s_in_adj_1<0.2)->
+(t_be'=0)&(capacity_removed'=true)&(cVMs'=-adjust_si_f1+cVMs)&(imm_res'=false)&(best_effort'=false)&
+(check'=false)&(scale_in_trigger'=false)&(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(util'=ceil(util*1.2))&
+(scale_in_requests_satisfied'=scale_in_requests_satisfied+1)&(turn'=ENV_TURN);
+
+//step 2 scale-in
+
+[satisfy_scale_in_request](turn=ENV_TURN)&(cVMs=2|cVMs=3|cVMs=4|cVMs=5|cVMs=6|cVMs=7|cVMs=8)&(imm_res=true)&(t<MAX_TIME)&(capacity_removed=false)&
+(scale_in_trigger=false)&(scale_out_trigger=false)&(scale_in_trigger_2=true)&(check=false)&(s_in_adj_2>=0.2&s_in_adj_2<1)->
+(t_be'=0)&(capacity_removed'=true)&(cVMs'=-adjust_si_f2+cVMs)&(imm_res'=false)&(best_effort'=false)&
+(check'=false)&(scale_in_trigger'=false)&(scale_out_trigger'=false)&(scale_in_trigger_2'=false)&(scale_out_trigger_2'=false)&(util'=ceil(util*1.2))&
+(scale_in_requests_satisfied'=scale_in_requests_satisfied+1)&(turn'=ENV_TURN);
+
+
+endmodule
+
+module saas_system
+
+eVMs:[INITIAL_VMS..MAX_VMS]init INITIAL_VMS;
+
+//STRATEGY 1(step-adjustment auto-scaling policy)
+[](turn=SAAS_TURN)&(t=MAX_TIME)->(util'=ceil(util))&(turn'=ENV_TURN);
+
+[](turn=SAAS_TURN)&(util>=b_util)->(t'=MAX_TIME)&(turn'=ENV_TURN);
+
+[alloc](turn=SAAS_TURN)&(t<MAX_TIME)&(t_be<WAIT_TIME)&(util<b_util)&(check=true)&(best_effort=true)->(check'=false)&(util'=util)&(t'=t+1)&(turn'=SAAS_TURN);
+[alloc](turn=SAAS_TURN)&(t<MAX_TIME)&(t_be=WAIT_TIME)&(util<b_util)&(check=true)&(best_effort=true)->(check'=false)&(util'=util)&(t'=t+1)&(turn'=ENV_TURN);
+[alloc](turn=SAAS_TURN)&(t<MAX_TIME)&(t_be<WAIT_TIME)&(util<b_util)&(check=true)&(best_effort=false)->(check'=false)&(util'=util)&(t'=t+1)&(turn'=SAAS_TURN);
+
+//Wait actions(in the range of [40,60)utilisation
+
+[wait](turn=SAAS_TURN)&(cVMs<=MAX_VMS)&(best_effort=false)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)
+&(t<MAX_TIME)&(util>=40&util<60)&(check=false)->(check'=false)&(capacity_added'=false)&(util'=ceil(util))&(req_send_0'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+
+//best-effort
+//Wait actions (in the range of [40,60]utilisation
+[retry](turn=SAAS_TURN)&(best_effort=true)&(scale_out_trigger=true|scale_out_trigger_2=true|scale_in_trigger=true|scale_in_trigger_2=true)
+&(t<MAX_TIME)&(util>=40&util<60)&(check=false)->
+(check'=false)&(capacity_added'=false)&(util'=ceil(util))&(req_send_0'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+
+//60-70
+[retry](turn=SAAS_TURN)&(best_effort=true)
+&(t<MAX_TIME)&(util>=60&util<70)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[retry](turn=SAAS_TURN)&(best_effort=true)&(t<MAX_TIME)&(util>=70&util<80)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[retry](turn=SAAS_TURN)&(best_effort=true)&(t<MAX_TIME)&(util>=80&util<90)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[retry](turn=SAAS_TURN)&(best_effort=true)&(t<MAX_TIME)&(util>=90)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+//label as fail
+[retry](turn=SAAS_TURN)&(cVMs>=1)&(best_effort=true)&(t<MAX_TIME)&(util>=b_util)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(r_t'=100)&(turn'=ENV_TURN);
+
+
+//label as fail
+[retry](turn=SAAS_TURN)&(cVMs>=1)&(best_effort=true)&(scale_out_trigger=true|scale_out_trigger_2=true|scale_in_trigger=true|scale_in_trigger_2=true)
+&(t<MAX_TIME)&(util>=b_util)&(check=false)->
+(t'=MAX_TIME)&(r_t'=100)&(turn'=ENV_TURN);
+
+
+//Scale-in actions (RETRIES)
+
+//For more than 2 VMs running
+[retry](turn=SAAS_TURN)&(cVMs>=1)&(best_effort=true)&(scale_out_trigger=true|scale_out_trigger_2=true|scale_in_trigger=true|scale_in_trigger_2=true)
+&(t<MAX_TIME)&(util>=0&util<=40)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+
+//Scale-out actions
+//INCREMENT OF 1
+//scale-out step 1 for 1 VM - 8 VMs
+[scale_out_act1](turn=SAAS_TURN)&((cVMs=1|cVMs=2|cVMs=3|cVMs=4|cVMs=5|cVMs=6|cVMs=7)&incr=1)&(scale_out_trigger=false)&
+(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=60&util<70)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)
+&(capacity_removed'=false)&(util'=ceil(util))&(scale_out_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[wait](turn=SAAS_TURN)&(cVMs=8&incr=1)&(util>=60&util<70)&(t<MAX_TIME)&(check=false)
+&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)->
+(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+
+//scale-out step 2 for 1 VM - 7 VMs
+[scale_out_act2](turn=SAAS_TURN)&((cVMs=1|cVMs=2|cVMs=3|cVMs=4|cVMs=5|cVMs=6)&incr=1)
+&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=70)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_out_trigger_2'=true)
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+
+[wait](turn=SAAS_TURN)&((cVMs=7|cVMs=8)&incr=1)&(util>=70)&(t<MAX_TIME)&(check=false)
+&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)->
+(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+
+//INCREMENT OF 2
+//scale-out step 1 for 1 VM - 8 VMs
+[scale_out_act1](turn=SAAS_TURN)&((cVMs=1|cVMs=2|cVMs=3|cVMs=4|cVMs=5|cVMs=6)&incr=2)&(scale_out_trigger=false)&
+(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=60&util<70)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)
+&(capacity_removed'=false)&(util'=ceil(util))&(scale_out_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[wait](turn=SAAS_TURN)&(cVMs=7|cVMs=8&incr=2)&(util>=60&util<70)&(t<MAX_TIME)&(check=false)
+&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)->
+(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+
+//scale-out step 2 for 1 VM - 8 VMs
+[scale_out_act2](turn=SAAS_TURN)&((cVMs=1|cVMs=2|cVMs=3|cVMs=4|cVMs=5|cVMs=6)&incr=2)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=70)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_out_trigger_2'=true)
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+
+[wait](turn=SAAS_TURN)&((cVMs=7|cVMs=8)&incr=2)&(util>=70)&(t<MAX_TIME)&(check=false)
+&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)->
+(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+
+
+//INCREMENT OF 3
+//scale-out step 1 for 1 VM - 8 VMs
+[scale_out_act1](turn=SAAS_TURN)&((cVMs=1|cVMs=2|cVMs=3|cVMs=4|cVMs=5)&incr=3)&(scale_out_trigger=false)&
+(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=60&util<70)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)
+&(capacity_removed'=false)&(util'=ceil(util))&(scale_out_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[wait](turn=SAAS_TURN)&(cVMs=6|cVMs=7|cVMs=8&incr=3)&(util>=60&util<70)&(t<MAX_TIME)&(check=false)
+&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)->
+(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+
+//scale-out step 2 for 1 VM - 7 VMs INCREMENT OF 3
+[scale_out_act2](turn=SAAS_TURN)&((cVMs=1|cVMs=2|cVMs=3|cVMs=4|cVMs=5)&incr=3)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=70)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_out_trigger_2'=true)
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+
+[wait](turn=SAAS_TURN)&((cVMs=6|cVMs= 7|cVMs=8)&incr=3)&(util>=70)&(t<MAX_TIME)&(check=false)
+&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)->
+(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+
+//Scale-in actions
+//for 1 VMs scale-in actions step 1
+[scale_in_act1](turn=SAAS_TURN)&(INITIAL_VMS=1&(cVMs=2|cVMs=3|cVMs=4|cVMs=5|cVMs=6|cVMs=7|cVMs=8))&(decr=1)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=30&util<40)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[scale_in_act1](turn=SAAS_TURN)&(INITIAL_VMS=2&(cVMs=3|cVMs=4|cVMs=5|cVMs=6|cVMs=7|cVMs=8))&(decr=1)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=30&util<40)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[scale_in_act1](turn=SAAS_TURN)&(INITIAL_VMS=3&(cVMs=4|cVMs=5|cVMs=6|cVMs=7|cVMs=8))&(decr=1)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=30&util<40)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[scale_in_act1](turn=SAAS_TURN)&(INITIAL_VMS=4&(cVMs=5|cVMs=6|cVMs=7|cVMs=8))&(decr=1)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=30&util<40)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[scale_in_act1](turn=SAAS_TURN)&(INITIAL_VMS=5&(cVMs=6|cVMs=7|cVMs=8))&(decr=1)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=30&util<40)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[scale_in_act1](turn=SAAS_TURN)&(INITIAL_VMS=6&(cVMs=7|cVMs=8))&(decr=1)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=30&util<40)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[scale_in_act1](turn=SAAS_TURN)&(INITIAL_VMS=7&(cVMs=8))&(decr=1)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=30&util<40)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+
+[wait](turn=SAAS_TURN)&((INITIAL_VMS=1&cVMs=1)|(INITIAL_VMS=2|cVMs=2)|(INITIAL_VMS=3&cVMs=3)|(INITIAL_VMS=4&cVMs=4)
+|(INITIAL_VMS=5&cVMs=5)|(INITIAL_VMS=6&cVMs=6)|(INITIAL_VMS=7&cVMs=7)|(INITIAL_VMS=8&cVMs=8))&(decr=1)&(util>=30&util<40)&(t<MAX_TIME)&(check=false)
+&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)->
+(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+
+//for 1 VM
+[scale_in_act2](turn=SAAS_TURN)&(INITIAL_VMS=1&(cVMs=2|cVMs=3|cVMs=4|cVMs=5|cVMs=6|cVMs=7|cVMs=8))&(decr=1)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=0&util<30)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger_2'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[wait](turn=SAAS_TURN)&(INITIAL_VMS=1&(cVMs=1&decr=1))&(util>=0&util<30)&(t<MAX_TIME)&(check=false)
+&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)->
+(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+
+//for 2 VMs
+[scale_in_act2](turn=SAAS_TURN)&(INITIAL_VMS=2&(cVMs=3|cVMs=4|cVMs=5|cVMs=6|cVMs=7|cVMs=8))&(decr=1)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=0&util<30)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger_2'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[wait](turn=SAAS_TURN)&(INITIAL_VMS=2&(cVMs=2&decr=1))&(util>=0&util<30)&(t<MAX_TIME)&(check=false)
+&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)->
+(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+
+//for 3 VMs 
+[scale_in_act2](turn=SAAS_TURN)&(INITIAL_VMS=3&(cVMs=4|cVMs=5|cVMs=6|cVMs=7|cVMs=8))&(decr=1)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=0&util<30)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger_2'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[wait](turn=SAAS_TURN)&(INITIAL_VMS=3&(cVMs=3&decr=1))&(util>=0&util<30)&(t<MAX_TIME)&(check=false)
+&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)->
+(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+
+//for 4 VMs 
+[scale_in_act2](turn=SAAS_TURN)&(INITIAL_VMS=4&(cVMs=5|cVMs=6|cVMs=7|cVMs=8))&(decr=1)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=0&util<30)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger_2'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[wait](turn=SAAS_TURN)&(INITIAL_VMS=4&(cVMs=4&decr=1))&(util>=0&util<30)&(t<MAX_TIME)&(check=false)
+&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)->
+(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+
+//for 5 VMs 
+[scale_in_act2](turn=SAAS_TURN)&(INITIAL_VMS=5&(cVMs=6|cVMs=7|cVMs=8))&(decr=1)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=0&util<30)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger_2'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[wait](turn=SAAS_TURN)&(INITIAL_VMS=5&(cVMs=5&decr=1))&(util>=0&util<30)&(t<MAX_TIME)&(check=false)
+&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)->
+(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+ 
+//for 6 VMs 
+[scale_in_act2](turn=SAAS_TURN)&(INITIAL_VMS=6&(cVMs=8))&(decr=1)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=0&util<30)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger_2'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[wait](turn=SAAS_TURN)&(INITIAL_VMS=6&((cVMs=6|cVMs=7)&decr=1))&(util>=0&util<30)&(t<MAX_TIME)&(check=false)
+&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)->
+(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+ 
+[wait](turn=SAAS_TURN)&(INITIAL_VMS=7&((cVMs=7|cVMs=8)&decr=1))&(util>=0&util<30)&(t<MAX_TIME)&(check=false)
+&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)->
+(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+ 
+
+[wait](turn=SAAS_TURN)&(INITIAL_VMS=8&((cVMs=8)&decr=1))&(util>=0&util<30)&(t<MAX_TIME)&(check=false)
+&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)->
+(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+ 
+
+
+//Scale-in actions
+//for 1 VMs scale-in actions step 1  DECREMENT OF 2
+[scale_in_act1](turn=SAAS_TURN)&(INITIAL_VMS=1&(cVMs=3|cVMs=4|cVMs=5|cVMs=6|cVMs=7|cVMs=8))&(decr=2)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=30&util<40)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[scale_in_act1](turn=SAAS_TURN)&(INITIAL_VMS=2&(cVMs=4|cVMs=5|cVMs=6|cVMs=7|cVMs=8))&(decr=2)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=30&util<40)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[scale_in_act1](turn=SAAS_TURN)&(INITIAL_VMS=3&(cVMs=5|cVMs=6|cVMs=7|cVMs=8))&(decr=2)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=30&util<40)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[scale_in_act1](turn=SAAS_TURN)&(INITIAL_VMS=4&(cVMs=6|cVMs=7|cVMs=8))&(decr=2)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=30&util<40)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[scale_in_act1](turn=SAAS_TURN)&(INITIAL_VMS=5&(cVMs=7|cVMs=8))&(decr=2)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=30&util<40)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN); 
+
+[scale_in_act1](turn=SAAS_TURN)&(INITIAL_VMS=6&(cVMs=8))&(decr=1)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=30&util<40)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[wait](turn=SAAS_TURN)&((INITIAL_VMS=1&cVMs=1|cVMs=2)|(INITIAL_VMS=2|cVMs=2|cVMs=3)|(INITIAL_VMS=3&(cVMs=3|cVMs=4))|(INITIAL_VMS=4&(cVMs=4|cVMs=5))
+|(INITIAL_VMS=5&(cVMs=5|cVMs=6))|(INITIAL_VMS=6&(cVMs=6|cVMs=7))|(INITIAL_VMS=7&(cVMs=7|cVMs=8))|(INITIAL_VMS=8&cVMs=8))&(decr=2)&(util>=30&util<40)&(t<MAX_TIME)&(check=false)
+&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)->
+(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+
+
+
+//SCALE-IN STEP 2   DECREMENT OF 2
+//for 1 VM
+[scale_in_act2](turn=SAAS_TURN)&(INITIAL_VMS=1&(cVMs=3|cVMs=4|cVMs=5|cVMs=6|cVMs=7|cVMs=8))&(decr=2)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=0&util<30)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger_2'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+//for 2 VMs
+[scale_in_act2](turn=SAAS_TURN)&(INITIAL_VMS=2&(cVMs=3|cVMs=4|cVMs=5|cVMs=6|cVMs=7|cVMs=8))&(decr=2)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=0&util<30)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger_2'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+//for 3 VMs 
+[scale_in_act2](turn=SAAS_TURN)&(INITIAL_VMS=3&(cVMs=4|cVMs=5|cVMs=6|cVMs=7|cVMs=8))&(decr=2)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=0&util<30)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger_2'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+//for 4 VMs 
+[scale_in_act2](turn=SAAS_TURN)&(INITIAL_VMS=4&(cVMs=5|cVMs=6|cVMs=7|cVMs=8))&(decr=2)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=0&util<30)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger_2'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+//for 5 VMs 
+[scale_in_act2](turn=SAAS_TURN)&(INITIAL_VMS=5&(cVMs=6|cVMs=7|cVMs=8))&(decr=2)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=0&util<30)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger_2'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+//for 6 VMs 
+[scale_in_act2](turn=SAAS_TURN)&(INITIAL_VMS=6&(cVMs=8))&(decr=2)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=0&util<30)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger_2'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[wait](turn=SAAS_TURN)&((INITIAL_VMS=1&cVMs=1|cVMs=2)|(INITIAL_VMS=2|cVMs=2|cVMs=3)|(INITIAL_VMS=3&(cVMs=3|cVMs=4))|(INITIAL_VMS=4&(cVMs=4|cVMs=5))
+|(INITIAL_VMS=5&(cVMs=5|cVMs=6))|(INITIAL_VMS=6&(cVMs=6|cVMs=7))|(INITIAL_VMS=7&(cVMs=7|cVMs=8))|(INITIAL_VMS=8&cVMs=8))&(decr=2)&(util>=0&util<30)&(t<MAX_TIME)&(check=false)
+&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)->
+(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+
+//SCALE IN STEP 1 DECREMENT OF 3
+//Scale-in actions
+//for 1 VMs scale-in actions step 1
+[scale_in_act1](turn=SAAS_TURN)&(INITIAL_VMS=1&(cVMs=4|cVMs=5|cVMs=6|cVMs=7|cVMs=8))&(decr=3)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=30&util<40)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[scale_in_act1](turn=SAAS_TURN)&(INITIAL_VMS=2&(cVMs=5|cVMs=6|cVMs=7|cVMs=8))&(decr=3)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=30&util<40)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[scale_in_act1](turn=SAAS_TURN)&(INITIAL_VMS=3&(cVMs=6|cVMs=7|cVMs=8))&(decr=3)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=30&util<40)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[scale_in_act1](turn=SAAS_TURN)&(INITIAL_VMS=4&(cVMs=7|cVMs=8))&(decr=3)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=30&util<40)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[scale_in_act1](turn=SAAS_TURN)&(INITIAL_VMS=5&(cVMs=8))&(decr=3)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=30&util<40)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[wait](turn=SAAS_TURN)&((INITIAL_VMS=1&(cVMs=1|cVMs=2|cVMs=3))|(INITIAL_VMS=2|
+cVMs=2&(cVMs=3|cVMs=4))|(INITIAL_VMS=3&(cVMs=3|cVMs=4|cVMs=5))|(INITIAL_VMS=4&(cVMs=4|cVMs=5|cVMs=6))
+|(INITIAL_VMS=5&(cVMs=5|cVMs=6|cVMs=7))|(INITIAL_VMS=6&(cVMs=6|cVMs=7|cVMs=8))|
+(INITIAL_VMS=7&(cVMs=7|cVMs=8))|(INITIAL_VMS=8&cVMs=8))&(decr=3)&(util>=30&util<40)&(t<MAX_TIME)&(check=false)
+&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)->
+(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+
+//step 2
+//for 1 VM
+[scale_in_act2](turn=SAAS_TURN)&(INITIAL_VMS=1&(cVMs=4|cVMs=5|cVMs=6|cVMs=7|cVMs=8))&(decr=3)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=0&util<30)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger_2'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+//for 2 VMs
+[scale_in_act2](turn=SAAS_TURN)&(INITIAL_VMS=2&(cVMs=5|cVMs=6|cVMs=7|cVMs=8))&(decr=3)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=0&util<30)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger_2'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+
+//for 3 VMs 
+[scale_in_act2](turn=SAAS_TURN)&(INITIAL_VMS=3&(cVMs=6|cVMs=7|cVMs=8))&(decr=3)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=0&util<30)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger_2'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+
+//for 4 VMs 
+[scale_in_act2](turn=SAAS_TURN)&(INITIAL_VMS=4&(cVMs=7|cVMs=8))&(decr=3)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=0&util<30)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger_2'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+
+//for 5 VMs 
+[scale_in_act2](turn=SAAS_TURN)&(INITIAL_VMS=5&(cVMs=8))&(decr=3)&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)
+&(t<MAX_TIME)&(util>=0&util<30)&(check=false)->
+(scale_out_requests'=scale_out_requests+1)&(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))&(scale_in_trigger_2'=true)
+&(cost'=1)&(price_charged'=5)&(r_t'=r_t)&(turn'=ENV_TURN);
+
+[wait](turn=SAAS_TURN)&((INITIAL_VMS=1&(cVMs=1|cVMs=2|cVMs=3))|(INITIAL_VMS=2|
+cVMs=2&(cVMs=3|cVMs=4))|(INITIAL_VMS=3&(cVMs=3|cVMs=4|cVMs=5))|(INITIAL_VMS=4&(cVMs=4|cVMs=5|cVMs=6))
+|(INITIAL_VMS=5&(cVMs=5|cVMs=6|cVMs=7))|(INITIAL_VMS=6&(cVMs=6|cVMs=7|cVMs=8))|
+(INITIAL_VMS=7&(cVMs=7|cVMs=8))|(INITIAL_VMS=8&cVMs=8))&(decr=3)&(util>=0&util<30)&(t<MAX_TIME)&(check=false)
+&(scale_out_trigger=false)&(scale_out_trigger_2=false)&(scale_in_trigger=false)&(scale_in_trigger_2=false)&(best_effort=false)->
+(check'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util))
+&(cost'=1)&(price_charged'=5)&(turn'=ENV_TURN);
+
+endmodule
+
+formula r_rew=(r_t=0 ?1 : 0)+(r_t=1 ?0.98  :0)+(r_t=2  ? 0.95 : 0)+(r_t=3 ?0.88 : 0)+(r_t=4 ?0.73 : 0)+(r_t=5 ? 0.5 : 0)+(r_t=6 ?0.27 :0)
++(r_t=7 ?0.11 :0)+(r_t=8 ? 0.04 : 0)+(r_t=9 ?0 :0)+(r_t=10 ? 0  :0);
+
+formula util_rew=(util>= 0&util<10 ? 0:0)+(util>=10& util<20  ? 0.08:0)+(util>=20&util<30  ? 0.18:0)
++(util>=30&util<40  ? 0.36:0)+(util>=40&util<50 ? 0.61:0)+(util>=50&util <60? 0.87:0)+(util>=60&util<70? 0.91:0)
++(util>=70&util<80? 0.6:0)+(util>=80&util<90? 0.2:0)+(util>=90&util<100? 0:0);
+
+rewards
+"reward_rt" [alloc]true : r_rew;
+endrewards
+//rewards
+//"reward_util" turn=SAAS_TURN :util_rew;bad_util
+//endrewards
+
+rewards
+"r_util"
+[alloc]true : util_rew;
+endrewards
+rewards
+"avg_util"true:util ;
+endrewards
+
+rewards
+"rt_viol_tr" [alloc]true&util>=b_util: 1;  
+endrewards
+rewards
+"util_viol_st" util>=b_util: 1;
+endrewards
+rewards
+"rt_viol_st" util>=80: 1;
+endrewards
+rewards
+"vm_ut" [change_arr]true :1/cVMs;
+endrewards
+rewards
+"revenue" turn=SAAS_TURN : revenue/10;
+endrewards
+rewards
+"vms"  true :cVMs;
+endrewards
+label "end"= t=MAX_TIME; 
+label "fail_util"= util>=95;
+label "bad_util"= util >= 90&util<=100;
+label "fail_rt"= r_t>=5;
+label "rt_viol"= r_t >=2;
+label "good"=  util<95;
