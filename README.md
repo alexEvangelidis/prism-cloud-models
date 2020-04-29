@@ -39,7 +39,7 @@ If you find this code useful in your research, please consider citing one of the
       issn = {0167-739X},
       publisher = {Elsevier},
       doi = {https://doi.org/10.1016/j.future.2017.12.047},
-      url = {http://www.sciencedirect.com/science/article/pii/S0167739X17312475},
+      url = {http://www.sciencedirect.com/science/article/pii/S0167739X17312475}
       }  
 
 
