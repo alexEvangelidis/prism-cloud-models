@@ -12,9 +12,9 @@ In Future Generation Computer Systems (FGCS), Elsevier, Volume 87, Pages 629-638
 Original publication link: [Elsevier](https://www.sciencedirect.com/science/article/abs/pii/S0167739X17312475)
 
 ## Citation
-If you find this code useful in your research, please consider citing:
-      
-      @inproceedings{10.1109/CCGRID.2017.39,
+If you find this code useful in your research, please consider citing one of the following papers:
+
+      @inproceedings{EPB17,
       author = {Evangelidis, Alexandros and Parker, David and Bahsoon, Rami},
       title = {Performance Modelling and Verification of Cloud-Based Auto-Scaling Policies},
       year = {2017},
@@ -29,6 +29,17 @@ If you find this code useful in your research, please consider citing:
       series = {CCGrid ’17}
       }
 
-  
+      @article{EPB18,
+      author = {Alexandros Evangelidis and David Parker and Rami Bahsoon},
+      title = {Performance modelling and verification of cloud-based auto-scaling policies},
+      journal = {Future Generation Computer Systems},
+      volume = {87},
+      pages = {629 - 638},
+      year = {2018},
+      issn = {0167-739X},
+      publisher = {Elsevier},
+      doi = {https://doi.org/10.1016/j.future.2017.12.047},
+      url = {http://www.sciencedirect.com/science/article/pii/S0167739X17312475},
+      }  
 
 
