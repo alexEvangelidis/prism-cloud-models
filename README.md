@@ -34,7 +34,7 @@ If you find this code useful in your research, please consider citing one of the
       title = {Performance modelling and verification of cloud-based auto-scaling policies},
       journal = {Future Generation Computer Systems},
       volume = {87},
-      pages = {629 - 638},
+      pages = {629-638},
       year = {2018},
       issn = {0167-739X},
       publisher = {Elsevier},
