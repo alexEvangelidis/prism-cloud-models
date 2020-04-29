@@ -12,7 +12,7 @@ In Future Generation Computer Systems (FGCS), Elsevier, Volume 87, Pages 629-638
 Original publication link: [Elsevier](https://www.sciencedirect.com/science/article/abs/pii/S0167739X17312475)
 
 ## Citation
-If you find this code useful in your research, please consider citing one of the following papers:
+If you find this code useful in your research, please consider citing one of the papers:
 
       @inproceedings{EPB17,
       author = {Evangelidis, Alexandros and Parker, David and Bahsoon, Rami},
