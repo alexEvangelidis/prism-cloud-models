@@ -11,7 +11,7 @@ Performance modelling and verification of cloud-based auto-scaling policies.
 In Future Generation Computer Systems (FGCS), Elsevier, Volume 87, Pages 629-638.
 Original publication link: [Elsevier](https://www.sciencedirect.com/science/article/abs/pii/S0167739X17312475)
 
-# Citation
+## Citation
 If you find this code useful in your research, please consider citing:
       
       @inproceedings{10.1109/CCGRID.2017.39,
