@@ -1,17 +1,6 @@
-//    Copyright (C) 2017-2020 Alexandros Evangelidis
+//Copyright (C) 2017-2020 Alexandros Evangelidis
 
-//    This program is free software: you can redistribute it and/or modify
-//    it under the terms of the GNU General Public License as published by
-//    the Free Software Foundation, either version 3 of the License, or
-//    (at your option) any later version.
-
-//    This program is distributed in the hope that it will be useful,
-//    but WITHOUT ANY WARRANTY; without even the implied warranty of
-//    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//    GNU General Public License for more details.
-
-//    You should have received a copy of the GNU General Public License
-//    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+//This work is licensed under a [Creative Commons Attribution-ShareAlike 4.0 International License]
 
 
 smg
@@ -53,7 +42,7 @@ const int b_util=95;
 const MIN_ARRIVALS=0;
 const MAX_ARRIVALS=100000;
 
-const double service_rate= 1;
+const double service_rate=1;
 //constants to be set by the user
 const double s_o_adj_1;const double s_o_adj_2;
 const double s_in_adj_1;const double s_in_adj_2;
