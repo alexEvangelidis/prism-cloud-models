@@ -1,6 +1,6 @@
 # PRISM models
-This repository contains the code of the PRISM models I have developed for the following papers.
-The first paper proposes a performance model for horizontal auto-scaler on Amazon EC2.
+This repository contains the code of the PRISM models I have developed for the following papers. <br />
+The first paper proposes a performance model for horizontal auto-scaler on Amazon EC2. <br />
 The second paper proposes performance models for horizontal auto-scalers on Amazon EC2 and on Microsoft Azure.
 It is an extended version of the first one.
 
