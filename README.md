@@ -1,8 +1,7 @@
 # PRISM models
 This repository contains the code of the PRISM models I have developed for the following papers. <br />
-The first paper proposes a probabilistic performance model for horizontal auto-scalers on Amazon EC2. <br />
-The second paper proposes probabilistic performance models for horizontal auto-scalers on Amazon EC2 and on Microsoft Azure.
-It is an extended version of the first one.
+The first paper is about constructing probabilistic performance models for horizontal auto-scalers on Amazon EC2. <br />
+The second paper is about constructing probabilistic performance models for horizontal auto-scalers on Amazon EC2 and on Microsoft Azure. It is an extended version of the first one.
 
 * Alexandros Evangelidis, David Parker, and Rami Bahsoon. 2017.
 Performance Modelling and Verification of Cloud-based Auto-Scaling Policies.
