@@ -1,4 +1,4 @@
-//Copyright (C) 2017-2020 Alexandros Evangelidis
+//    Copyright (C) 2017-2020 Alexandros Evangelidis
 
 //This work is licensed under a [Creative Commons Attribution-ShareAlike 4.0 International License]
 
@@ -42,7 +42,7 @@ const int b_util=95;
 const MIN_ARRIVALS=0;
 const MAX_ARRIVALS=100000;
 
-const double service_rate=1;
+const double service_rate= 1;
 //constants to be set by the user
 const double s_o_adj_1;const double s_o_adj_2;
 const double s_in_adj_1;const double s_in_adj_2;

@@ -1,0 +1,206 @@
+//    Copyright (C) 2017-2020 Alexandros Evangelidis
+
+//This work is licensed under a [Creative Commons Attribution-ShareAlike 4.0 International License]
+smg
+
+player environment  
+env,[change_arr],[satisfy_scale_out_request],[satisfy_scale_in_request]
+endplayer
+
+player saas
+saas_system,[scale_out_act1],[scale_in_act1] ,[wait] 
+endplayer
+
+global t:[0..MAX_TIME] init 0;
+global turn:[SAAS_TURN..ENV_TURN] init ENV_TURN;
+global capacity_added: bool init false;
+global capacity_removed: bool init false;
+global scale_out_trigger :bool init false;
+global scale_in_trigger :bool init false;
+global stop : bool init false;
+global util :[0..100] init 0;
+
+
+const MAX_VMS=4;
+const int SAAS_TURN=1;
+const int ENV_TURN =2;
+const int b_util=70;
+global count_bad_so : [0..100] init 0;
+global count_bad_si : [0..100] init 0;
+
+//constants to be set by the user
+const  INITIAL_VMS ;const MAX_TIME;
+const int incr1;const int decr1;
+
+global bad_so: bool init false;
+global bad_si: bool init false;
+global start: bool init true;
+
+const int util_1;
+const int util_2;
+const int util_2_1_s; const int util_2_2_s;
+const int util_3; const int util_3_1_so; const int util_3_2_so;
+const int util_3_1_si; const int util_3_2_si;
+const int util_4_1; const int util_4_2; const int util_4_1_si;
+
+const double p2_3;
+const double p3_1;
+const double p3_4;
+const double p4_1;
+const double p4_2;
+
+global test: bool init true;
+module env
+cVMs :[INITIAL_VMS..MAX_VMS] init INITIAL_VMS;
+
+[](turn=ENV_TURN)&(t=MAX_TIME) ->  (t'=MAX_TIME);
+
+//1 VM  starting state with 1 VM
+[change_arr] (turn=ENV_TURN)&(t<MAX_TIME)&(cVMs=1)&(scale_out_trigger=false)&(scale_in_trigger=false)& (start=true)-> 
+//1
+(util'=util_1)& (capacity_added'=false) & (capacity_removed'=true)& (test'=true)&
+(scale_out_trigger'=false) & (scale_in_trigger'=false) &(t'=t+1)& (bad_so'=false)&
+(bad_si'=false)& (start'=false) &(turn'=SAAS_TURN);
+
+//2 VMs
+[change_arr] (turn=ENV_TURN)&(t<MAX_TIME)&(cVMs=2)&(scale_out_trigger=false)&(scale_in_trigger=false)& (start=false)-> 
+//1
+(util'=util_2)& (capacity_added'=false) & (capacity_removed'=true)& (test'=true)&
+(scale_out_trigger'=false) & (scale_in_trigger'=false) &(t'=t+1)& (bad_so'=false)&
+(bad_si'=false)& (start'=false) &(turn'=SAAS_TURN);
+
+//3 VMs
+[change_arr] (turn=ENV_TURN)&(t<MAX_TIME)&(cVMs=3)&(scale_out_trigger=false)&(scale_in_trigger=false)& (start=false)-> 
+//1
+(util'=util_3)&(capacity_added'=false) & (capacity_removed'=true)&(test'=true)&
+(scale_out_trigger'=false) & (scale_in_trigger'=false) &(t'=t+1)& (bad_so'=false)&
+(bad_si'=false)& (start'=false) &(turn'=SAAS_TURN);
+
+//4 VMs
+[change_arr] (turn=ENV_TURN)&(t<MAX_TIME)&(cVMs=4)&(scale_out_trigger=true)&(scale_in_trigger=false)->
+//1
+p4_1:(util'=util_4_1)&(scale_out_trigger'=false)&(test'=true)&(bad_so'=false)&(bad_si'=false)&(scale_in_trigger'=false)&(t'=t+1)&(turn'=SAAS_TURN) +
+//2
+p4_2:(util'=util_4_2)&(capacity_added'=false)&(test'=true)&(capacity_removed'=true)&
+(scale_out_trigger'=false)&(scale_in_trigger'=false)&
+(t'=t+1)&(bad_so'=false)&(bad_si'=false)&(turn'=SAAS_TURN);
+
+//for step1 scale-out responses
+//1 VM
+[satisfy_scale_out_request] (turn=ENV_TURN)&(cVMs=1)&(t<MAX_TIME)&(capacity_added =false)&(scale_out_trigger=true)& (scale_in_trigger=false)-> 
+(capacity_added'=true) &(scale_out_trigger'=false)&(cVMs'= cVMs+incr1)&(bad_so'=true)& 
+(util'=util_1)&(count_bad_so'=count_bad_so+1)&(test'=true)&(turn'=SAAS_TURN);
+
+//2 VMs
+[satisfy_scale_out_request] (turn = ENV_TURN)&(cVMs=2)&(t<MAX_TIME)&(capacity_added =false)&(scale_out_trigger = true)&(scale_in_trigger=false)-> 
+p2_3:(capacity_added'=true) &(test'=true) &(scale_out_trigger'=false)&(scale_in_trigger'=false) & (cVMs'= cVMs+ incr1)&(bad_so' = true)&
+(count_bad_so'=count_bad_so +1)&(util'=util_2_1_s)&(turn'=SAAS_TURN)
++1-p2_3:(capacity_added'=true)&(test'=true)& (scale_out_trigger'=false)&(scale_in_trigger'=false)&(cVMs'=cVMs+incr1)
+&(bad_so'=false)& (count_bad_so'=count_bad_so)&(util'=util_2_2_s)&(turn' =SAAS_TURN);
+
+//3 VMs
+[satisfy_scale_out_request](turn = ENV_TURN)&(cVMs=3)&(t<MAX_TIME)&(capacity_added =false)&(scale_out_trigger= true)&(scale_in_trigger=false)->
+p3_4:(capacity_added'=true)& (test'=true) &(scale_out_trigger'=false)& (cVMs'= cVMs + incr1) & (bad_so' = false)&(util'=util_3_1_so)& (t'=t+1) &(turn' =SAAS_TURN) 
++ 1-p3_4: (capacity_added'=true)&(test'=true) & (scale_out_trigger'=false)& (cVMs'=cVMs + incr1) & (bad_so'=false) & (util' = util_3_2_so)& (t'=t+1)&(turn' =SAAS_TURN);
+
+
+//for step 1 scale in responses
+//for 2 VMs
+[satisfy_scale_in_request] (turn = ENV_TURN)&(cVMs=2)&(t<MAX_TIME)&(capacity_removed =false)&
+(scale_in_trigger= true) & (scale_out_trigger=false) -> (test'=true)&
+(capacity_removed'=true) & (cVMs'=cVMs - decr1)&(scale_in_trigger'=false)&(scale_out_trigger'=false)
+
+//No bad scale-in actions
+&(util' = 75)& (count_bad_si' = count_bad_si) & (bad_si' = false)& (t'=t+1) &(turn' =SAAS_TURN);
+
+//for step 1 scale in responses
+//for 3 VMs
+[satisfy_scale_in_request] (turn = ENV_TURN)  & (cVMs =3) & (t<MAX_TIME) & (capacity_removed =false)&
+(scale_in_trigger= true) & (scale_out_trigger=false) ->
+p3_1 :(capacity_removed'=true)&(cVMs'=cVMs - decr1)&(scale_in_trigger'=false)&(scale_out_trigger'=false) &(util'=util_3_1_si)&
+(count_bad_si' = count_bad_si +1)&(bad_si'=true) &(turn' =SAAS_TURN)&(test'=true)
++1-p3_1  :(capacity_added'=true)&(scale_out_trigger'=false)& (scale_in_trigger'=false)& (cVMs'= cVMs - decr1)&
+(bad_si'=false)& (count_bad_si' = count_bad_si) &(util'=util_3_2_si)&(turn' =SAAS_TURN)& (test'=true);
+
+
+[satisfy_scale_in_request] (turn = ENV_TURN)  & (cVMs =4) & (t<MAX_TIME) & (capacity_removed =false)&
+(scale_in_trigger= true) & (scale_out_trigger=false)-> 
+(capacity_removed'=true) & (cVMs'=cVMs - decr1)&(scale_in_trigger'=false)&(scale_out_trigger'=false)
+&(util'= util_4_1_si)&(count_bad_si' = count_bad_si+1)&(bad_si'=true)& (test'=true)&(turn' =SAAS_TURN);
+
+
+endmodule
+
+module saas_system
+
+// (step-adjustment auto-scaling policy)
+[](turn=SAAS_TURN) & (t=MAX_TIME) -> (util'=util)& (turn'=ENV_TURN);
+
+//Wait actions  (in the range of [40,60) utilisation
+
+[wait] (turn=SAAS_TURN)&(cVMs<=MAX_VMS)&(scale_out_trigger=false)& (scale_in_trigger=false)
+&(t<MAX_TIME)& (util>=40 & util<=70)-> (bad_so'=false) & (bad_si'=false) &(capacity_added' =false)&(util'=ceil(util))&(turn' =ENV_TURN);
+
+//Scale-in actions  (RETRIES)
+
+//Scale-out actions
+//INCREMENT OF 1
+//scale-out step 1
+[scale_out_act1] (turn=SAAS_TURN)& ((cVMs =1 |cVMs =2 |cVMs=3) & incr1 =1) &(scale_out_trigger=false)& (scale_in_trigger=false)
+&(t<MAX_TIME)& (util>70) ->
+(capacity_added' =false)&(capacity_removed'=false)&(util'=ceil(util))&(bad_so'=false) & (bad_si'=false)&(scale_out_trigger'=true) &(test'=true)&(turn' =ENV_TURN) ;
+
+[wait] (turn=SAAS_TURN) &  ( cVMs=4 & incr1=1) & (util>70)&(t<MAX_TIME)-> (capacity_added' =false)& (bad_so'=false) & (bad_si'=false)& (test'=true)&(capacity_removed'=false)&(util'=ceil(util))&(turn' =ENV_TURN);
+
+//Scale-in actions
+//for 1 VMs scale-in actions step 1
+[scale_in_act1](turn=SAAS_TURN)&( INITIAL_VMS=1 &(cVMs=2 | cVMs=3 | cVMs=4 )) & ( (util* cVMs)/(cVMs-decr1)<70 )&(decr1=1)&(scale_out_trigger=false)& (scale_in_trigger=false) 
+&(t<MAX_TIME)& (util>=0 &util<40)->(bad_so'=false) & (bad_si'=false)&(capacity_added' =false)& (capacity_removed'=false) &(util'=ceil(util))&(scale_in_trigger'=true)&(turn' =ENV_TURN)& (test'=true);
+
+[scale_in_act1](turn=SAAS_TURN)&( INITIAL_VMS=2 &(cVMs=3 | cVMs=4 ))&(decr1=1)& ( (util* cVMs)/(cVMs-decr1) < 70 )&(scale_out_trigger=false)& (scale_in_trigger=false)&
+(t<MAX_TIME)& (util>=0 &util<40) ->(bad_so'=false) & (bad_si'=false)&(capacity_added' =false)& (capacity_removed'=false) &(util'=ceil(util))&(scale_in_trigger'=true)&(turn' =ENV_TURN) & (test'=true) ;
+
+[scale_in_act1](turn=SAAS_TURN)&( INITIAL_VMS=3 &( cVMs=4 ))&(decr1=1)&((util* cVMs)/(cVMs-decr1)< 70 )&(scale_out_trigger=false)& (scale_in_trigger=false) 
+&(t<MAX_TIME)& (util>=0 &util<40) ->(bad_so'=false) & (bad_si'=false)&(capacity_added' =false)& (capacity_removed'=false) &(util'=ceil(util))&(scale_in_trigger'=true)&(turn' =ENV_TURN)& (test'=true);
+
+[wait](turn=SAAS_TURN)&((INITIAL_VMS=1 & cVMs=1)|(INITIAL_VMS=2 & cVMs=2)|(INITIAL_VMS=3 & cVMs=3)|(INITIAL_VMS=4 & cVMs=4))&(decr1=1)&(util>=0 &util<40)&(t<MAX_TIME)
+& (scale_out_trigger=false)& (scale_in_trigger=false)-> (bad_so'=false) & (bad_si'=false)&(capacity_added'=false)&(capacity_removed'=false)&(util'=ceil(util)) & (test'=true) &(turn' =ENV_TURN);
+
+endmodule
+
+rewards
+"avg_util"true:util ;
+endrewards
+
+rewards
+"util_viol_st" util>=b_util: 1;
+endrewards
+
+rewards
+"vm_ut" [change_arr] true :1/cVMs;
+endrewards
+
+rewards
+"vms"  true :cVMs;
+endrewards
+
+label "end" = t=MAX_TIME; 
+
+label "bad_util_sout" = (util>70 & util<=100) & scale_out_trigger=false;
+label "bad_util_sin" = (util >70 & util<=100) & scale_in_trigger=false; 
+
+rewards
+"num_bad_so" bad_so=true : count_bad_so; endrewards
+
+rewards
+"num_bad_si" bad_si=true : count_bad_si; endrewards
+rewards
+
+"bad_sout_reward"
+bad_so=true :1;
+endrewards
+
+rewards
+"bad_sin_reward"
+bad_si=true :1;
+endrewards
